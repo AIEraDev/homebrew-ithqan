@@ -14,6 +14,11 @@ cask "ithqan" do
 
   app "Ithqan.app"
 
+  postflight do
+    system_command "xattr",
+                   args: ["-cr", "#{appdir}/Ithqan.app"]
+  end
+
   zap trash: [
     "~/Library/Application Support/com.ithqan.app",
     "~/Library/Caches/com.ithqan.app",
