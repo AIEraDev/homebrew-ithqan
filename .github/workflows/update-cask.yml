@@ -1,0 +1,90 @@
+name: Update Cask on Release
+
+on:
+  repository_dispatch:
+    types: [update-cask]
+
+permissions:
+  contents: write
+
+jobs:
+  update-cask:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout tap
+        uses: actions/checkout@v4
+
+      - name: Get version from payload
+        id: version
+        run: |
+          VERSION="${{ github.event.client_payload.version }}"
+          CLEAN_VERSION="${VERSION#v}"
+          echo "version=$CLEAN_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Updating cask to version: $CLEAN_VERSION (tag: $VERSION)"
+
+      - name: Wait for release assets to be available
+        run: sleep 30
+
+      - name: Download DMGs and compute SHA256
+        id: sha
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          BASE_URL="https://github.com/AIEraDev/Ithqan/releases/download/${TAG}"
+
+          echo "Downloading aarch64 DMG..."
+          curl -fSL -o "ithqan_aarch64.dmg" "${BASE_URL}/Ithqan_${TAG}_macos_aarch64.dmg"
+          SHA_ARM=$(shasum -a 256 ithqan_aarch64.dmg | awk '{print $1}')
+          echo "ARM64 SHA256: $SHA_ARM"
+
+          echo "Downloading x64 DMG..."
+          curl -fSL -o "ithqan_x64.dmg" "${BASE_URL}/Ithqan_${TAG}_macos_x64.dmg"
+          SHA_X64=$(shasum -a 256 ithqan_x64.dmg | awk '{print $1}')
+          echo "X64 SHA256: $SHA_X64"
+
+          echo "sha_arm=$SHA_ARM" >> "$GITHUB_OUTPUT"
+          echo "sha_x64=$SHA_X64" >> "$GITHUB_OUTPUT"
+
+      - name: Update Cask formula
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA_ARM="${{ steps.sha.outputs.sha_arm }}"
+          SHA_X64="${{ steps.sha.outputs.sha_x64 }}"
+
+          cat > Casks/ithqan.rb << CASKEOF
+          cask "ithqan" do
+            arch arm: "aarch64", intel: "x64"
+
+            version "${VERSION}"
+            sha256 arm:   "${SHA_ARM}",
+                   intel: "${SHA_X64}"
+
+            url "https://github.com/AIEraDev/Ithqan/releases/download/v#{version}/Ithqan_v#{version}_macos_#{arch}.dmg",
+                verified: "github.com/AIEraDev/Ithqan/"
+
+            name "Ithqan"
+            desc "Local-first Quran memorization review companion with audio looping and retention tracking"
+            homepage "https://github.com/AIEraDev/Ithqan"
+
+            app "Ithqan.app"
+
+            zap trash: [
+              "~/Library/Application Support/com.ithqan.app",
+              "~/Library/Caches/com.ithqan.app",
+              "~/Library/Preferences/com.ithqan.app.plist",
+            ]
+          end
+          CASKEOF
+
+          echo "Updated Cask formula:"
+          cat Casks/ithqan.rb
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/ithqan.rb
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "chore: update ithqan cask to v${{ steps.version.outputs.version }}"
+          git push
