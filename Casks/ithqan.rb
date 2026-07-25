@@ -1,9 +1,9 @@
 cask "ithqan" do
   arch arm: "aarch64", intel: "x64"
 
-  version "0.1.0"
-  sha256 arm:   "bfd8b6c7d4d4bf39e5dd6a9099a65489977224f29d49370d27ceb456ee42f924",
-         intel: "51a56c4489550a53926d6d415dc9def9eb3b983324b6c29d48aabf5dcda8ed37"
+  version "0.2.0"
+  sha256 arm:   "7f44dc90ef14c213ca6d0197c92930257f89196fdcb7407573c392d2fc0f4c70",
+         intel: "d51ce8a9a94cff6fe3430912727cb36663f62f12fe6a80a4756a041ed32afc46"
 
   url "https://github.com/AIEraDev/Ithqan/releases/download/v#{version}/Ithqan_v#{version}_macos_#{arch}.dmg",
       verified: "github.com/AIEraDev/Ithqan/"
